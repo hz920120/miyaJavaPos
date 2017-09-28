@@ -1,0 +1,1931 @@
+package com.miya;
+
+/*
+ * 二合一版本
+ * */
+import java.awt.BorderLayout;
+import java.awt.Label;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JTextField;
+
+public class TcpSend {
+
+    static String pathseparator=System.getProperty("file.separator");
+    private static JFrame frame = null;
+
+    // 字符串转16进制
+    public static String str2HexStr(String str) {
+        char[] chars = "0123456789ABCDEF".toCharArray();
+        StringBuffer sb = new StringBuffer ("");
+        byte[] bs = str.getBytes();
+        int bit;
+        for (int i = 0; i < bs.length; i++) {
+            bit = (bs[i] & 0x0f0) >> 4;
+            sb.append(chars[bit]);
+            bit = bs[i] & 0x0f;
+            sb.append(chars[bit]);
+        }
+        return sb.toString();
+    }
+
+    //字节转16进制
+    public static String encode(byte[] bytes)
+    {
+        if(bytes==null){return null;}
+        String hexString="0123456789ABCDEF";
+        StringBuffer sb=new StringBuffer (bytes.length*2);
+        //将字节数组中每个字节拆解成2位16进制整数
+        for(int i=0;i<bytes.length;i++)
+        {
+            sb.append(hexString.charAt((bytes[i]&0xf0)>>4));
+            sb.append(hexString.charAt((bytes[i]&0x0f)>>0));
+        }
+        return sb.toString();
+    }
+
+    private static String requestSocket(byte[] tlv, String ip, int port,int timeout){
+        byte[] getsend=TcpUtil.send(ip, port, tlv,timeout);
+        if(getsend==null){return null;}
+        return encode(getsend);
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public static String  sendTlv(Map tlv,Map map,String ip,int port,int timeout,String bathpath) throws Exception{
+        String F2=tlv.get("F2").toString();
+        tlv.put("F2",null);
+        //获取tlv
+        String value=TlvUtils.getTlvstr(tlv)+"3E20"+str2HexStr(F2);
+
+        //获取mac
+        String macvalue=MacEcbUtils.printHexString(MacEcbUtils.clacMac(hexStr2ByteArr(value)));
+        //特殊处理定长头+tlv+特殊处理+key+mac
+        value = "60001300003330303000"+value +macvalue;
+        //获取长度16进制串
+        String lenstr=Integer.toHexString(value.length()/2).toUpperCase();
+        int x=4-lenstr.length();
+        for(int i=0;i<x;i++){
+            lenstr="0"+lenstr;
+        }
+
+        //完整的16进制send串
+        value=lenstr+value;
+        String sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        String logconfigpath=bathpath+pathseparator+"miyalog"+pathseparator+"log.log";
+//	String logconfigpath=bathpath+pathseparator+"config"+pathseparator+"log.log";
+        BufferedWriter returnwriter = null;
+        if(map.get("UTF8BM") == null || !map.get("UTF8BM").equals("1")){
+            returnwriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"GBK"));
+        }else{
+            returnwriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"UTF-8"));
+        }
+        returnwriter.write(sytemdate+"发送["+ip+","+port+","+timeout+"]十六进制报文"+value+"\r\n");
+        returnwriter.close();
+        //转化为字节码
+        byte[] valuebyte=hexStr2ByteArr(value);
+        if("1".equals(map.get("ismustdes"))){
+            valuebyte=encryptMode(valuebyte,map.get("3deskey").toString());
+        }
+        //发送数据
+        return requestSocket(valuebyte,ip, port,timeout);
+    }
+    public static byte[] encryptMode(byte[] keybyte, String src) {
+        try { // 生成密钥
+            SecretKey deskey = new SecretKeySpec(keybyte, "DES"); // 加密
+            Cipher c1 = Cipher.getInstance("DES");
+            c1.init(Cipher.ENCRYPT_MODE, deskey);
+            return c1.doFinal(src.getBytes());
+        } catch (java.security.NoSuchAlgorithmException e1) {
+            e1.printStackTrace();
+        } catch (javax.crypto.NoSuchPaddingException e2) {
+            e2.printStackTrace();
+        } catch (java.lang.Exception e3) {
+            e3.printStackTrace();
+        }
+        return null;
+    }
+    private static JTextField trcode = null;
+    private static JTextField platform = null;
+    private static JTextField paymenttype = null;
+    private static JTextField serveicetype = null;
+    private static JTextField version = null;
+    private static JTextField tradeno = null;
+    private static JTextField totalfee = null;
+    private static JTextField outtradeno = null;
+    private static JTextField outrequestno = null;
+    private static JTextField f1 = null;
+    private static JTextField goodsdetail = null;
+    private static JTextField dynamicid = null;
+    private static JTextField coupons = null;
+    private static JTextField dynamicidtype = null;
+    private static Label labeltrcode = null;
+    private static Label labelplatform = null;
+    private static Label labelpaymenttype = null;
+    private static Label labelserveicetype = null;
+    private static Label labelversion = null;
+    private static Label labeltradeno = null;
+    private static Label labeltotalfee = null;
+    private static Label labelouttradeno = null;
+    private static Label labeloutrequestno = null;
+    private static Label labelf1 = null;
+    private static Label labelgoodsdetail = null;
+    private static Label labeldynamicid = null;
+    private static Label labelcoupons = null;
+    private static Label labledynamicidtype = null;
+    @SuppressWarnings({ "unchecked", "rawtypes", "unused" })
+    public static void main(String args[]) throws Exception {
+
+        Map tlvmap=new HashMap();
+        tlvmap.put("TRCODE","8902");                                  //默认值      pos传入参数
+        tlvmap.put("NUMID", "0062");                                       //门店号      pos传入参数
+        tlvmap.put("USERID", "001");                                      //pos机号     pos传入参数
+        tlvmap.put("OPERATOR_ID","2323");                                  //收银员ID    pos传入参数
+        tlvmap.put("PAYMENTPLATFORM", "A");
+//        tlvmap.put("PAYMENT_TYPE", "A");                             //重码分类 （券交易时传Q） 京东（B）
+//		tlvmap.put("DYNAMIC_ID_TYPE", "001");
+//		tlvmap.put("DYNAMIC_ID", "1");
+        tlvmap.put("SERVEICETYPE", "C");                                  //操作类型    默认值
+        tlvmap.put("VERSION", "1.5");                                //版本号      默认值
+//		tlvmap.put("TRADE_NO", "9n2A3d4PAxGa0L-zhKwGTH");            //券必传
+        tlvmap.put("TOTAL_FEE", "1");                                 //金额（分）  pos传入参数
+        tlvmap.put("OUT_TRADE_NO", "10062345679519892412126");                  //订单号      pos传入参数
+        tlvmap.put("OUT_REQUEST_NO", "208801740976311543");
+//		tlvmap.put("COUPONS", "13774547542");
+        tlvmap.put("F1", "280590407507652712");                      //支付条码或券码    pos传入参数
+        tlvmap.put("GOODSDETAIL","6934665087998,蒙牛冠益乳健字号原味发酵乳利乐冠200g,0.01,1.0");
+//        tlvmap.put("GOODSDETAIL","");
+
+//        tlvmap.put("GOODSDETAIL","6912345891111,shengnvguo,1.0,1");	      //格式：商品码1,名称1,金额1,数量1|商品码2,名称2,金额2,数量2...两个商品之间用|符合分开，商品信息以,隔开。商品名称中请确保无 ,|两种符号。 例：690000000,大鹏牌啤酒,10.00,1|690000000,大鹏牌香烟（支）,100.00,1
+//        tlvmap.put("path","c:\\miyajpos\\");			                  //自定义目录  可空,默认c:\miyajpos\
+
+
+//        tlvmap.put("NUMID", "001");
+//        tlvmap.put("USERID", "001");
+//        tlvmap.put("TRCODE", "8906");
+//        tlvmap.put("OPERATOR_ID","001");
+//        tlvmap.put("PAYMENTPLATFORM", "1");
+//        tlvmap.put("PRODUCT_CODE", "BARCODE_PAY_OFFLINE");
+//        tlvmap.put("OUT_TRADE_NO", "4313221213413283852321");
+//        tlvmap.put("TOTAL_FEE", "1");
+//        tlvmap.put("SERVEICETYPE", "7");
+//        tlvmap.put("VERSION", "1.0");
+//        tlvmap.put("GOODSDETAIL", "690000000,啤酒,10.00,2|690000001,香烟,5.00,2");
+        tlvmap.put("path","/Users/cesc/Desktop/icbc/javapos/miyajpos/");
+//		Map other=new HashMap();
+//		other.put("HOST", "114.55.54.147");
+//		other.put("PORT", "9191");
+//		other.put("TIMEOUT", "120");
+//		other.put("KEY", "nbz9ww27sx4ou6dkr61mf63tth3s6e2d");
+//		other.put("SUBJECT", "支付条码");
+//		other.put("SAASID", "miya");
+        Map requsetMap=sendMiya(tlvmap,null);
+        System.out.println(requsetMap.toString());
+
+        //创建JFrame对象，JFrame用来在屏幕上显示一个Windows窗口。
+// 		frame = new JFrame("java组件测试");
+// 		trcode=new JTextField(30);
+//	    platform=new JTextField(30);
+//	    paymenttype=new JTextField(30);
+//	    serveicetype=new JTextField(30);
+//	    version=new JTextField(30);
+//	    tradeno=new JTextField(30);
+//	    totalfee=new JTextField(30);
+//	    outtradeno=new JTextField(30);
+//	    outrequestno=new JTextField(30);
+//	    f1=new JTextField(30);
+//	    goodsdetail=new JTextField(30);
+//	    dynamicid=new JTextField(30);
+//	    coupons=new JTextField(30);
+//	    dynamicidtype=new JTextField(30);
+//
+//        // 设置其高度和宽度分别为：288像素和188像素
+// 	    frame.setLayout(null);
+// 	    labelversion = new Label("VERSION");
+// 	    labeltrcode = new Label("TRCODE");
+// 	    labelplatform = new Label("PAYMENTPLATFORM");
+// 	    labelpaymenttype = new Label("PAYMENT_TYPE");
+// 	    labelserveicetype = new Label("SERVEICETYPE");
+// 	    labeltradeno = new Label("TRADE_NO");
+// 	    labeltotalfee = new Label("TOTAL_FEE");
+// 	    labelouttradeno = new Label("OUT_TRADE_NO");
+// 	    labeloutrequestno = new Label("OUT_REQUEST_NO");
+// 	    labelf1 = new Label("F1");
+// 	    labelgoodsdetail = new Label("GOODSDETAIL");
+// 	    labeldynamicid = new Label("DYNAMIC_ID");
+// 	    labelcoupons = new Label("COUPONS");
+// 	    labledynamicidtype = new Label("DYNAMIC_ID_TYPE");
+//
+// 	    labelversion.setBounds(0,0,120,25);
+//        frame.add(labelversion);
+//        labelplatform.setBounds(0,25,120,25);
+//        frame.add(labelplatform);
+//        labelpaymenttype.setBounds(0,50,120,25);
+//        frame.add(labelpaymenttype);
+//        labelserveicetype.setBounds(0,75,120,25);
+//        frame.add(labelserveicetype);
+//        labeltrcode.setBounds(0,100,120,25);
+//        frame.add(labeltrcode);
+//        labeltradeno.setBounds(0,125,120,25);
+//        frame.add(labeltradeno);
+//        labeltotalfee.setBounds(0,150,120,25);
+//        frame.add(labeltotalfee);
+//        labelouttradeno.setBounds(0,175,120,25);
+//        frame.add(labelouttradeno);
+//        labeloutrequestno.setBounds(0,200,120,25);
+//        frame.add(labeloutrequestno);
+//        labelf1.setBounds(0,225,120,25);
+//        frame.add(labelf1);
+//        labelgoodsdetail.setBounds(0,250,120,25);
+//        frame.add(labelgoodsdetail);
+//        labeldynamicid.setBounds(0,275,120,25);
+//        frame.add(labeldynamicid);
+//        labelcoupons.setBounds(0,300,120,25);
+//        frame.add(labelcoupons);
+//        labledynamicidtype.setBounds(0,325,120,25);
+//        frame.add(labledynamicidtype);
+//
+//        version.setBounds(120,0,100,25);
+//        frame.add(version);
+//        platform.setBounds(120,25,100,25);
+//        frame.add(platform);
+//        paymenttype.setBounds(120,50,100,25);
+//        frame.add(paymenttype);
+//        serveicetype.setBounds(120,75,100,25);
+//        frame.add(serveicetype);
+//        trcode.setBounds(120,100,100,25);
+//        frame.add(trcode);
+//        tradeno.setBounds(120,125,200,25);
+//        frame.add(tradeno);
+//        totalfee.setBounds(120,150,100,25);
+//        frame.add(totalfee);
+//        outtradeno.setBounds(120,175,200,25);
+//        frame.add(outtradeno);
+//        outrequestno.setBounds(120,200,200,25);
+//        frame.add(outrequestno);
+//        f1.setBounds(120,225,200,25);
+//        frame.add(f1);
+//        goodsdetail.setBounds(120,250,200,25);
+//        frame.add(goodsdetail);
+//        dynamicid.setBounds(120,275,200,25);
+//        frame.add(dynamicid);
+//        coupons.setBounds(120,300,200,25);
+//        frame.add(coupons);
+//        dynamicidtype.setBounds(120,325,200,25);
+//        frame.add(dynamicidtype);
+//
+//        JButton b = new JButton("上送");
+//        b.setBounds(350,325,100,20);
+//        b.addActionListener(new ActionListener() {
+//          public void actionPerformed(ActionEvent e) {
+//        	  Map tlvmap=new HashMap();
+//        	  if(trcode.getText() != null && !trcode.getText().equals("")){
+//        		  tlvmap.put("TRCODE", trcode.getText());
+//        	  }
+//        	  if(platform.getText() != null && !platform.getText().equals("")){
+//        		  tlvmap.put("PAYMENTPLATFORM", platform.getText());
+//        	  }
+//        	  if(paymenttype.getText() != null && !paymenttype.getText().equals("")){
+//        		  tlvmap.put("PAYMENT_TYPE", paymenttype.getText());
+//        	  }
+//        	  if(serveicetype.getText() != null && !serveicetype.getText().equals("")){
+//        		  tlvmap.put("SERVEICETYPE", serveicetype.getText());
+//        	  }
+//        	  if(version.getText() != null && !version.getText().equals("")){
+//        		  tlvmap.put("VERSION", version.getText());
+//        	  }
+//        	  if(tradeno.getText() != null && !tradeno.getText().equals("")){
+//        		  tlvmap.put("TRADE_NO", tradeno.getText());
+//        	  }
+//        	  if(totalfee.getText() != null && !totalfee.getText().equals("")){
+//        		  tlvmap.put("TOTAL_FEE", totalfee.getText());
+//        	  }
+//        	  if(outtradeno.getText() != null && !outtradeno.getText().equals("")){
+//        		  tlvmap.put("OUT_TRADE_NO", outtradeno.getText());
+//        	  }
+//        	  if(outrequestno.getText() != null && !outrequestno.getText().equals("")){
+//        		  tlvmap.put("OUT_REQUEST_NO", outrequestno.getText());
+//        	  }
+//        	  if(f1.getText() != null && !f1.getText().equals("")){
+//        		  tlvmap.put("F1", f1.getText());
+//        	  }
+//        	  if(goodsdetail.getText() != null && !goodsdetail.getText().equals("")){
+//        		  tlvmap.put("GOODSDETAIL", goodsdetail.getText());
+//        	  }
+//        	  if(dynamicid.getText() != null && !dynamicid.getText().equals("")){
+//        		  tlvmap.put("DYNAMIC_ID", dynamicid.getText());
+//        	  }
+//        	  if(coupons.getText() != null && !coupons.getText().equals("")){
+//        		  tlvmap.put("COUPONS", coupons.getText());
+//        	  }
+//        	  if(dynamicidtype.getText() != null && !dynamicidtype.getText().equals("")){
+//        		  tlvmap.put("DYNAMIC_ID_TYPE", dynamicidtype.getText());
+//        	  }
+//        	  try {
+//        		Map requsetMap=sendMiya(tlvmap,null);
+//				JOptionPane.showMessageDialog(null, requsetMap);
+//			} catch (Exception e1) {
+//				e1.printStackTrace();
+//				JOptionPane.showMessageDialog(null, "系统异常！");
+//			}
+//
+//          }
+//      });
+//        frame.add(b,BorderLayout.CENTER);
+//        frame.setSize(800,500);
+//		// 显示该Frame
+//		frame.setVisible(true);
+    }
+    public static boolean checkpath(String bathpath)
+    {
+        String configpath=bathpath+"config"+pathseparator+"miyaConfig.txt";
+        File file=new File(configpath);
+        boolean isexists=false;
+        if(file.exists()){
+            isexists=true;
+        }
+
+        return isexists;
+    }
+    @SuppressWarnings({ "unchecked", "rawtypes", "unused" })
+    public static Map sendMiya(Map tlvmap,Map other) throws Exception{
+        if(tlvmap!=null&&tlvmap.get("GOODSDETAIL")!=null){
+            String[] ts={"&","\"","<",">"};
+
+            String goodsdetail=tlvmap.get("GOODSDETAIL").toString();
+            for(int i=0;i<ts.length;i++){
+                if(goodsdetail.indexOf(ts[i]) > -1){
+                    goodsdetail=goodsdetail.replaceAll(ts[i], "#");
+
+                }
+            }
+//			for(int i=0;i<ts.length;i++){
+//				if(goodsdetail.contains(ts[i])){
+//					goodsdetail=goodsdetail.replace(ts[i], "#");
+//
+//				}
+//			}
+            tlvmap.put("GOODSDETAIL", goodsdetail);
+
+        }
+        String bathpath=null;
+        String logconfigpath=null;
+        String configpath=null;
+        String printpath = null;
+        String paypath = null;
+        if(tlvmap.get("path")!=null){
+            bathpath=tlvmap.get("path").toString();
+            tlvmap.put("path",null);
+            bathpath=bathpath+"miyaapay"+pathseparator;
+            logconfigpath=bathpath+"miyalog"+pathseparator+"log.log";
+            configpath=bathpath+"config"+pathseparator+"miyaConfig.txt";
+            printpath=bathpath+"config"+pathseparator+"printConfig.txt";
+            paypath=bathpath+"config"+pathseparator+"payConfig.txt";
+//       	   logconfigpath=bathpath+"config"+pathseparator+"log.log";
+//       	   configpath=bathpath+"config"+pathseparator+"config.txt";
+//        	   printpath=bathpath+"config"+pathseparator+"printConfig.txt";
+//        	   paypath=bathpath+"config"+pathseparator+"payConfig.txt";
+        }else{
+            bathpath="C:"+pathseparator+"miyajpos"+pathseparator+"miyaapay"+pathseparator;
+            logconfigpath=bathpath+"miyalog"+pathseparator+"log.log";
+            configpath=bathpath+"config"+pathseparator+"miyaConfig.txt";
+            printpath=bathpath+"config"+pathseparator+"printConfig.txt";
+            paypath=bathpath+"config"+pathseparator+"payConfig.txt";
+//        	   bathpath="C:"+pathseparator;
+//     	       logconfigpath=bathpath+"config"+pathseparator+"log.log";
+//     	       configpath=bathpath+"config"+pathseparator+"config.txt";
+//        	   printpath=bathpath+"config"+pathseparator+"printConfig.txt";
+//        	   paypath=bathpath+"config"+pathseparator+"payConfig.txt";
+        }
+        if(!checkpath(bathpath)){
+            Map map =new HashMap();
+            map.put("RETCODE", "EE");
+            map.put("F1", "配置文件路径不正确！");
+            return map;
+        }
+
+        Map map=new HashMap();
+        FileInputStream fis =null;
+        InputStreamReader isr=null;
+        BufferedReader br =null;
+        try {
+            fis = new FileInputStream(new File(configpath));
+            isr = new InputStreamReader(fis,"GBK");
+            br = new BufferedReader(isr);
+            String str ="";
+            String[] value=null;
+            while((str=br.readLine())!=null){
+                if(str.indexOf("#") == -1){
+                    value=str.split("=");
+                    if(value!=null&&value.length==2){
+                        map.put(value[0], value[1]);
+                    }
+                }
+            }
+        } catch (Exception e) {
+//			Map map2 =new HashMap();
+//        	map2.put("RETCODE", "EE");
+//        	map2.put("F1", "配置文件异常！");
+//        	return map2;
+        }finally{
+            br.close();
+            isr.close();
+            fis.close();
+        }
+        //安卓版本
+//		map.put("test", "0");
+//		map.put("marketid", "001");
+//		map.put("userid", "19");
+//		map.put("operator_id", "001");
+//		map.put("zfzdqf", "1");
+//		map.put("refundzdqf", "1");
+//		map.put("ismustdes", "0");
+//		map.put("3deskey", "12345678123456781234567812345678");
+//		map.put("isgoodsdetail", "1");
+//		map.put("defaultjd", "1");
+//		map.put("printreceitp", "0");
+//		map.put("wxyh", "0");
+//		map.put("cutpaper'", "0");
+//		map.put("yxdy", "0");
+
+        String sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        BufferedWriter writerx =null;
+        if(map.get("UTF8BM") == null || !map.get("UTF8BM").equals("1")){
+            writerx = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"GBK"));
+        }else{
+            writerx = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"UTF-8"));
+        }
+        writerx.write(sytemdate+"接收pos业务报文:"+tlvmap.toString()+"\r\n");
+        if(other!=null){
+            writerx.write(sytemdate+"接收pos配置报文:"+other.toString()+"\r\n");
+        }
+        writerx.flush();
+        writerx.close();
+
+        String ip=null;
+        int port=0;
+        int timeout=0;
+
+        if(other==null){
+            tlvmap.put("SAASID", map.get("saasid").toString());
+            tlvmap.put("F2", map.get("key").toString());
+            ip=map.get("host").toString();
+            port=Integer.parseInt(map.get("port").toString());
+            timeout=Integer.parseInt(map.get("timeout").toString());
+            tlvmap.put("SUBJECT",map.get("receipttitle").toString());
+        }else{
+            if(other.get("SAASID")!=null){
+                tlvmap.put("SAASID", other.get("SAASID").toString());
+            }
+            if(other.get("KEY")!=null){
+                tlvmap.put("F2", other.get("KEY").toString());
+            }
+            if(other.get("HOST")!=null){
+                ip=other.get("HOST").toString();
+            }
+            if(other.get("TIMEOUT")!=null){
+                timeout=Integer.parseInt(other.get("TIMEOUT").toString());
+            }
+            if(other.get("PORT")!=null){
+                port=Integer.parseInt(other.get("PORT").toString());
+            }
+            if(other.get("SUBJECT")!=null){
+                tlvmap.put("SUBJECT",other.get("SUBJECT").toString());
+            }
+        }
+
+        //如果是测试状态，直接取配置文件中的门店号和pos机号
+        if("1".equals(map.get("test"))){
+            tlvmap.put("NUMID",map.get("marketid").toString());
+            tlvmap.put("USERID",map.get("userid").toString());
+            tlvmap.put("OPERATOR_ID", map.get("operator_id").toString());
+        }
+        if(tlvmap.get("OPERATOR_ID")==null)
+        {
+            tlvmap.put("OPERATOR_ID","001");
+        }
+        String[] zhifu={"91","92","45"};
+        boolean zdqf=true;
+        for(int i=0;i<zhifu.length;i++){
+            if(zhifu[i].equals(tlvmap.get("TRCODE"))){
+                zdqf=false;
+            }
+        }
+
+//		Map<String, String> paymap=new HashMap<String, String>();
+        Map paymap=new HashMap();
+        FileInputStream fis2 =null;
+        InputStreamReader isr2=null;
+        BufferedReader br2 =null;
+        try {
+            fis2 = new FileInputStream(new File(paypath));
+            isr2 = new InputStreamReader(fis2,"GBK");
+            br2 = new BufferedReader(isr2);
+            String str ="";
+            String[] value=null;
+            while((str=br2.readLine())!=null){
+                if(str.indexOf("#") == -1){
+                    value=str.split("=");
+                    if(value!=null&&value.length==2){
+                        paymap.put(value[0], value[1]);
+                    }
+                }
+            }
+        } catch (Exception e) {
+//				Map map2 =new HashMap();
+//	        	map2.put("RETCODE", "EE");
+//	        	map2.put("F1", "配置文件异常！");
+//	        	return map2;
+        }finally{
+            br2.close();
+            isr2.close();
+            fis2.close();
+        }
+
+        //SERVEICETYPE为1时，过滤掉非支付功能
+        if(zdqf){
+            if(tlvmap.get("VERSION")==null)
+            {
+                tlvmap.put("VERSION","1.0");
+            }
+            if("1".equals(map.get("zfzdqf")) && "5".equals(tlvmap.get("SERVEICETYPE")) || "7".equals(tlvmap.get("SERVEICETYPE"))){
+                if("1".equals(map.get("isgoodsdetail").toString())){
+                    tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                }
+                tlvmap.put("GOODSDETAIL",null);
+            }
+            //SERVEICETYPE为1时，自动清分
+            if("1".equals(map.get("zfzdqf"))&&("1".equals(tlvmap.get("SERVEICETYPE")) || "A".equals(tlvmap.get("SERVEICETYPE")))){
+                if(tlvmap.get("F1")!=null){
+                    if("1.5".equals(tlvmap.get("VERSION"))){
+                        tlvmap.put("TRCODE","1001");
+                        tlvmap.put("PAYMENTPLATFORM","A");
+                        tlvmap.put("PRODUCT_CODE","1000");
+                        tlvmap.put("SERVEICETYPE","A");
+                        tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                        tlvmap.put("F1",null);
+                        if("1".equals(map.get("isgoodsdetail").toString())){
+                            tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                        }
+                        tlvmap.put("GOODSDETAIL",null);
+                    }else{
+                        String dynamic_id= ((String) tlvmap.get("F1")).substring(0,2);
+                        int intdynamic_id=  Integer.parseInt(dynamic_id);
+                        int tag = 0;
+//					for(String key : paymap.keySet()) {
+                        Iterator iter = paymap.entrySet().iterator();
+                        while (iter.hasNext()) {
+                            Map.Entry entry = (Map.Entry) iter.next();
+                            String key = entry.getKey().toString();
+                            if(key.length() > 2){
+                                String paykey[] = key.split(",");
+                                if(intdynamic_id >= Integer.parseInt(paykey[0]) && intdynamic_id <= Integer.parseInt(paykey[1])){
+                                    if(paymap.get(key).equals("1")){
+                                        tlvmap.put("TRCODE","8901");
+                                        tlvmap.put("PAYMENTPLATFORM","1");
+                                        tlvmap.put("PRODUCT_CODE","1000");
+                                        tlvmap.put("SERVEICETYPE","1");
+                                        tlvmap.put("GOODSDETAIL",null);
+                                        tag=1;
+                                        break;
+                                    }else if(paymap.get(key).equals("5")){
+                                        tlvmap.put("TRCODE","9001");
+                                        tlvmap.put("PAYMENTPLATFORM","5");
+                                        tlvmap.put("SERVEICETYPE","1");
+                                        tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                        tlvmap.put("PRODUCT_CODE","x");
+                                        tlvmap.put("DYNAMIC_ID_TYPE","x");
+                                        tlvmap.put("SUBJECT","x");
+                                        tlvmap.put("F1",null);
+                                        tlvmap.put("GOODSDETAIL",null);
+                                        tag=1;
+                                        break;
+                                    }else if(paymap.get(key).equals("6")){
+                                        tlvmap.put("TRCODE","9101");
+                                        tlvmap.put("PAYMENTPLATFORM","6");
+                                        tlvmap.put("SERVEICETYPE","1");
+                                        tlvmap.put("GOODSDETAIL",null);
+                                        tag=1;
+                                        break;
+                                    }else if(paymap.get(key).equals("G")&&((String) tlvmap.get("F1")).length()==16){
+                                        tlvmap.put("TRCODE","7001");
+                                        tlvmap.put("PAYMENTPLATFORM","G");
+                                        tlvmap.put("SERVEICETYPE","1");
+                                        tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                        if("1".equals(map.get("isgoodsdetail").toString())){
+                                            tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                                        }else{
+                                            tlvmap.put("F1",null);
+                                        }
+                                        tlvmap.put("GOODSDETAIL",null);
+                                        tag=1;
+                                        break;
+                                    }else if(paymap.get(key).equals("8")&&((String) tlvmap.get("F1")).length()==18){
+                                        tlvmap.put("TRCODE","9401");
+                                        tlvmap.put("PAYMENTPLATFORM","8");
+                                        tlvmap.put("SERVEICETYPE","1");
+                                        tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                        tlvmap.put("GOODSDETAIL",null);
+                                        tag=1;
+                                        break;
+                                    }else if(paymap.get(key).equals("3")){
+                                        tlvmap.put("TRCODE","8801");
+                                        tlvmap.put("PAYMENTPLATFORM","3");
+                                        tlvmap.put("SERVEICETYPE","1");
+                                        tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                        if("1".equals(map.get("isgoodsdetail").toString())){
+                                            tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                                        }else{
+                                            tlvmap.put("F1",null);
+                                        }
+                                        tlvmap.put("GOODSDETAIL",null);
+                                        tag=1;
+                                        break;
+                                    }
+                                }
+                            }else{
+                                if(intdynamic_id == Integer.parseInt(key) && intdynamic_id == 31){
+                                    tlvmap.put("TRCODE","9501");
+                                    tlvmap.put("PAYMENTPLATFORM","4");
+                                    tlvmap.put("SERVEICETYPE","1");
+                                    tlvmap.put("GOODSDETAIL",null);
+                                    tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                    tag=1;
+                                    break;
+                                }
+//                                else if(intdynamic_id == Integer.parseInt(key) && intdynamic_id>=25 && intdynamic_id<=30){
+//                                    tlvmap.put("TRCODE","8801");
+//                                    tlvmap.put("PAYMENTPLATFORM","3");
+//                                    tlvmap.put("SERVEICETYPE","1");
+//                                    tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+//                                    if("1".equals(map.get("isgoodsdetail").toString())){
+//                                        tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+//                                    }else{
+//                                        tlvmap.put("F1",null);
+//                                    }
+//                                    tlvmap.put("GOODSDETAIL",null);
+//                                    tag=1;
+//                                    break;
+//                                }
+                                else if(intdynamic_id == Integer.parseInt(key) && intdynamic_id == 23){
+                                    tlvmap.put("TRCODE","9201");
+                                    tlvmap.put("PAYMENTPLATFORM","7");
+                                    tlvmap.put("SERVEICETYPE","1");
+                                    tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                    tlvmap.put("GOODSDETAIL",null);
+                                    tag=1;
+                                    break;
+                                }else if(intdynamic_id == Integer.parseInt(key) && intdynamic_id == 18){
+                                    tlvmap.put("TRCODE","9601");
+                                    tlvmap.put("PAYMENTPLATFORM","A");
+                                    tlvmap.put("SERVEICETYPE","1");
+                                    tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                    tlvmap.put("GOODSDETAIL",null);
+                                    tag=1;
+                                    break;
+                                }else if(intdynamic_id == Integer.parseInt(key) && intdynamic_id == 62){
+                                    tlvmap.put("TRCODE","9701");
+//                                    tlvmap.put("PAYMENTPLATFORM","C");
+                                    tlvmap.put("PAYMENTPLATFORM","P");
+                                    tlvmap.put("SERVEICETYPE","1");
+                                    tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                                    tlvmap.put("GOODSDETAIL",null);
+                                    tag=1;
+                                }
+                            }
+                        }
+                        if(tag == 0){
+                            tlvmap.put("VERSION", "1.5");
+                            tlvmap.put("TRCODE","1001");
+                            tlvmap.put("PAYMENTPLATFORM","A");
+                            tlvmap.put("PRODUCT_CODE","1000");
+                            tlvmap.put("SERVEICETYPE","A");
+                            tlvmap.put("DYNAMIC_ID",tlvmap.get("F1"));
+                            tlvmap.put("F1",null);
+                            if("1".equals(map.get("isgoodsdetail").toString())){
+                                tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                            }
+                            tlvmap.put("GOODSDETAIL",null);
+                        }
+                    }
+                }
+            }
+        }
+        //退款
+        if("1".equals(map.get("refundzdqf"))&&"8902".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","8902");
+            tlvmap.put("PAYMENTPLATFORM","1");
+            tlvmap.put("SERVEICETYPE","3");
+            if(tlvmap.get("OPERATOR_ID") != null && tlvmap.get("TOTAL_FEE") != null){
+                tlvmap.put("DYNAMIC_ID_TYPE", tlvmap.get("OPERATOR_ID"));
+                tlvmap.put("DYNAMIC_ID", tlvmap.get("TOTAL_FEE"));
+            }
+        }
+        //查询
+        if("1".equals(map.get("zfzdqf"))&&"8904".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","8904");
+            tlvmap.put("PAYMENTPLATFORM","1");
+            tlvmap.put("SERVEICETYPE","2");
+        }
+        //撤销
+        if("1".equals(map.get("refundzdqf"))&&"8903".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","8903");
+            tlvmap.put("PAYMENTPLATFORM","1");
+            tlvmap.put("SERVEICETYPE","5");
+        }
+        //退货查询
+        if("1".equals(map.get("refundzdqf"))&&"8905".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","8905");
+            tlvmap.put("PAYMENTPLATFORM","1");
+            tlvmap.put("SERVEICETYPE","4");
+        }
+        if("8801".equals(tlvmap.get("TRCODE"))){
+            tlvmap.put("DYNAMIC_ID_TYPE","barcode");
+            tlvmap.put("PRODUCT_CODE","BARCODE_PAY_OFFLINE");
+        }
+        //1.5 查询、退货 、撤销、退货查询
+        if(map.get("fzfqf") != null && map.get("fzfqf").equals("1")){
+            if(tlvmap.get("TRCODE") != null && tlvmap.get("TRCODE").equals("8902")){
+                tlvmap.put("VERSION", "1.5");
+                tlvmap.put("TRCODE","1002");
+                tlvmap.put("PAYMENTPLATFORM","A");
+                tlvmap.put("SERVEICETYPE","C");
+                if("1".equals(map.get("isgoodsdetail").toString())){
+                    tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                }
+                tlvmap.put("GOODSDETAIL",null);
+            }
+            if(tlvmap.get("TRCODE") != null && tlvmap.get("TRCODE").equals("8903")){
+                tlvmap.put("VERSION", "1.5");
+                tlvmap.put("TRCODE","1003");
+                tlvmap.put("PAYMENTPLATFORM","A");
+                tlvmap.put("SERVEICETYPE","E");
+                if("1".equals(map.get("isgoodsdetail").toString())){
+                    tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                }
+                tlvmap.put("GOODSDETAIL",null);
+            }
+            if(tlvmap.get("TRCODE") != null && tlvmap.get("TRCODE").equals("8904")){
+                tlvmap.put("VERSION", "1.5");
+                tlvmap.put("TRCODE","1004");
+                tlvmap.put("PAYMENTPLATFORM","A");
+                tlvmap.put("SERVEICETYPE","B");
+                if("1".equals(map.get("isgoodsdetail").toString())){
+                    tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                }
+                tlvmap.put("GOODSDETAIL",null);
+            }
+            if(tlvmap.get("TRCODE") != null && tlvmap.get("TRCODE").equals("8905")){
+                tlvmap.put("VERSION", "1.5");
+                tlvmap.put("TRCODE","1005");
+                tlvmap.put("PAYMENTPLATFORM","A");
+                tlvmap.put("SERVEICETYPE","D");
+                if("1".equals(map.get("isgoodsdetail").toString())){
+                    tlvmap.put("F1",tlvmap.get("GOODSDETAIL"));
+                }
+                tlvmap.put("GOODSDETAIL",null);
+            }
+        }
+
+        //1.5接口PAYMENTPLATFORM均送  A
+        if ("1.5".equals(tlvmap.get("VERSION"))){
+            tlvmap.put("PAYMENTPLATFORM","A");
+
+        }
+        if("B".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","1004");
+        }
+        if("C".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","1002");
+        }
+        if("D".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","1005");
+        }
+        if("E".equals(tlvmap.get("SERVEICETYPE"))){
+            tlvmap.put("TRCODE","1003");
+        }
+        //打印日志
+        String receipt=bathpath+"miyareceitp"+pathseparator+"receitp.txt";
+//		String receipt=bathpath+"config"+pathseparator+"receitp.txt";
+
+        File logfile=new File(logconfigpath);
+        if(logfile.exists()){
+            FileInputStream files = null;
+            files = new FileInputStream(logfile);
+            int size=files.available();
+            files.close();
+            if(size>1024*1024*30){
+                File file1=new File(bathpath+"config"+pathseparator+"log1.log");
+                if(file1.exists()){file1.delete();}
+                logfile.renameTo(new File(bathpath+"config"+pathseparator+"log1.log"));
+            }
+        }
+        sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        BufferedWriter writer = null;
+        if(map.get("UTF8BM") == null || !map.get("UTF8BM").equals("1")){
+            writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"GBK"));
+        }else{
+            writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"UTF-8"));
+        }
+        writer.write(sytemdate+"发送["+ip+","+port+","+timeout+"]"+tlvmap.toString()+"\r\n");
+        writer.flush();
+        writer.close();
+        //发送
+        String getSend=sendTlv(tlvmap,map,ip,port,timeout,bathpath);
+        Map tlvbean=TlvUtils.getSendTlv(getSend);
+        BufferedWriter returnwriter = null;
+        if(map.get("UTF8BM") == null || !map.get("UTF8BM").equals("1")){
+            returnwriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"GBK"));
+        }else{
+            returnwriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"UTF-8"));
+        }
+        //北京北辰针对微信F2返回的顺序调整
+//		if("1".equals(map.get("wxyh"))){
+//		  if(tlvbean != null){
+//			  if("1".equals(tlvmap.get("PAYMENTPLATFORM"))&&"1.0".equals(tlvmap.get("VERSION"))){
+//			     String[] F2=null;
+//		         if(tlvbean.get("F2")!=null){
+//		        	 F2=tlvbean.get("F2").toString().trim().split("\\|");
+//		        	 tlvbean.put("F2", F2[0]+"|"+F2[2]+"|"+F2[1]+"|");
+//		         }
+//			  }
+//		  }
+//		}
+        //屈臣氏版本
+        if(map.get("fhxxhz") != null && map.get("fhxxhz").equals("1")){
+            if(tlvbean != null){
+                if(("00".equals(tlvbean.get("RETCODE")) || "EB".equals(tlvbean.get("RETCODE"))) && "PAYWAIT".equals(tlvbean.get("RETMSG"))){
+                    tlvbean.put("F1", "请等待用户支付确认！");
+                }
+                if(!"00".equals(tlvbean.get("RETCODE")) && !"EB".equals(tlvbean.get("RETCODE"))){
+                    if("PAYFAIL".equals(tlvbean.get("RETMSG"))){
+                        tlvbean.put("F1", "支付失败！");
+                    }
+                    else if("CANCELFAIL".equals(tlvbean.get("RETMSG"))){
+                        tlvbean.put("F1", "撤销失败！");
+                    }
+                    else if("REFUNDFAIL".equals(tlvbean.get("RETMSG"))){
+                        tlvbean.put("F1", "退货失败！");
+                    }else{
+                        if("1001".equals(tlvbean.get("TRCODE")) || "1004".equals(tlvbean.get("TRCODE"))){
+                            tlvbean.put("F1", "支付失败！");
+                        }
+                        else if("1002".equals(tlvbean.get("TRCODE")) || "1005".equals(tlvbean.get("TRCODE"))){
+                            tlvbean.put("F1", "退货失败！");
+                        }
+                        else if("1003".equals(tlvbean.get("TRCODE"))){
+                            tlvbean.put("F1", "撤销失败！");
+                        }
+                        else{}
+                    }
+                }
+            }
+        }
+        sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        if(tlvbean==null){
+            returnwriter.write(sytemdate+"通信异常！或前置机无应答！商户订单号："+tlvmap.get("OUT_TRADE_NO")+" 商户号："+tlvmap.get("SAASID")+"\r\n");
+            returnwriter.close();
+            Map map1 =new HashMap();
+            map1.put("RETCODE", "EE");
+            map1.put("F1", "通信异常！");
+            map1.put("OUT_TRADE_NO", tlvmap.get("OUT_TRADE_NO"));
+            return map1;
+        }else{
+            returnwriter.write(sytemdate+"接收十六进制："+getSend+"\r\n");
+            returnwriter.write(sytemdate+"接收参数："+tlvbean.toString()+"\r\n");
+        }
+        returnwriter.flush();
+        returnwriter.close();
+
+//		 Map<String, String> printmap=new HashMap<String, String>();
+        Map printmap=new HashMap();
+        FileInputStream fis1 =null;
+        InputStreamReader isr1=null;
+        BufferedReader br1 =null;
+        try {
+            fis1 = new FileInputStream(new File(printpath));
+            isr1 = new InputStreamReader(fis1,"GBK");
+            br1 = new BufferedReader(isr1);
+            String str ="";
+            String[] value=null;
+            while((str=br1.readLine())!=null){
+                if(str.indexOf("#") == -1){
+                    value=str.split("=");
+                    if(value!=null&&value.length==2){
+                        printmap.put(value[0], value[1]);
+                    }
+                }
+            }
+        } catch (Exception e) {
+//				Map map2 =new HashMap();
+//	        	map2.put("RETCODE", "EE");
+//	        	map2.put("F1", "打印配置文件异常！");
+//	        	return map2;
+        }finally{
+            br1.close();
+            isr1.close();
+            fis1.close();
+        }
+
+        if("1".equals(map.get("printreceitp")) || map.get("printreceitp") == null){
+            //打印小票
+            File file=new File(receipt);
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+            if(map.get("yxdy") == null || !"1".equals(map.get("yxdy"))){
+                file.delete();
+            }
+            BufferedWriter receiptWriter = new BufferedWriter(new FileWriter(file,true));
+            BufferedWriter receiptWriter1 = null;
+            if(map.get("UTF8BM") == null || !map.get("UTF8BM").equals("1")){
+                receiptWriter1 = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"GBK"));
+            }else{
+                receiptWriter1 = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(logconfigpath,true),"UTF-8"));
+            }
+            DecimalFormat df = new DecimalFormat("0.00");
+            if(tlvbean!=null){
+                sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                if("1.5".equals(tlvbean.get("VERSION"))){
+                    if(map.get("receipttitle") != null && !"92".equals(tlvmap.get("TRCODE"))){
+                        receiptWriter.write("      "+map.get("receipttitle").toString()+"\r\n");
+                    }
+                    if("91".equals(tlvmap.get("TRCODE")) || "Z".equals(tlvbean.get("PAYMENTPLATFORM")) || "90".equals(tlvmap.get("TRCODE"))){
+                        receiptWriter.write("    会花券签购单\r\n");
+                    }
+                    if(!"92".equals(tlvmap.get("TRCODE"))){
+                        receiptWriter.write("商户存根联，请妥善保管！\r\n");
+                        receiptWriter.write("----------------------------\r\n");
+                        receiptWriter.write("商户编号: "+tlvmap.get("SAASID").toString()+"\r\n");
+                        receiptWriter.write("门店编号: "+tlvmap.get("NUMID").toString()+"\r\n");
+                        receiptWriter.write("POS 编号: "+tlvmap.get("USERID").toString()+"\r\n");
+                        receiptWriter.write("操作员号: "+tlvmap.get("OPERATOR_ID").toString()+"\r\n");
+                        receiptWriter.write("日期时间: "+sytemdate+"\r\n");
+                        receiptWriter.write("----------------------------\r\n");
+                    }
+                    String type=null;
+                    String[] F2=null;
+                    String skje="0";
+                    String shyh="0";
+                    String qtyh="0";
+//		        	String ppyh=null;
+                    String total_fee=null;
+                    if(("00".equals(tlvbean.get("RETCODE"))||"EB".equals(tlvbean.get("RETCODE")))&&"PAYSUCCESS".equals(tlvbean.get("RETMSG"))){
+                        if("A".equals(tlvmap.get("SERVEICETYPE")) || "B".equals(tlvmap.get("SERVEICETYPE"))){
+                            if(tlvbean.get("PAYMENTPLATFORM") != null){
+//			        	  for (String key : printmap.keySet()) {
+//				        	   if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+//				        		   type = printmap.get(key)+"-消费";
+//				        	   }
+//			        	  }
+                                Iterator iter = printmap.entrySet().iterator();
+                                while (iter.hasNext()) {
+                                    Map.Entry entry = (Map.Entry) iter.next();
+                                    String key = entry.getKey().toString();
+                                    String val = entry.getValue().toString();
+                                    if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+                                        type = val+"-消费";
+                                    }
+                                }
+                            }
+                            if(tlvbean.get("TOTAL_FEE") != null){
+//		        	    total_fee=new BigDecimal(tlvbean.get("TOTAL_FEE").toString()).divide(new BigDecimal(100)).toString();
+                                total_fee = df.format(Double.valueOf(tlvbean.get("TOTAL_FEE").toString()).doubleValue()/100);
+                            }
+                            if(tlvbean.get("F2")!=null){
+                                String f2=null;
+                                f2=tlvbean.get("F2").toString().trim().replaceAll("\\[", "");
+                                f2=f2.replaceAll("\\]", "");
+                                F2=f2.split("\\|");
+//		        	 if(F2[0]!=null){skje=new BigDecimal(F2[0]).divide(new BigDecimal(100)).toString();} else{skje="0";}
+//		        	 if(F2[1]!=null){shyh=new BigDecimal(F2[1]).divide(new BigDecimal(100)).toString();}  else{shyh="0";}
+//		        	 if(F2[2]!=null){qtyh=new BigDecimal(F2[2]).divide(new BigDecimal(100)).toString();} else{qtyh="0";}
+                                if(F2[0]!=null){skje=df.format(Double.valueOf(F2[0]).doubleValue()/100);} else{skje="0";}
+                                if(F2[1]!=null){shyh=df.format(Double.valueOf(F2[1]).doubleValue()/100);} else{shyh="0";}
+                                if(F2[2]!=null){qtyh=df.format(Double.valueOf(F2[2]).doubleValue()/100);} else{qtyh="0";}
+//		        	 if(F2.length > 3){ppyh=df.format(Double.valueOf(F2[3]).doubleValue()/100);}
+                            }else{
+                                skje=total_fee;
+                                shyh="0";
+                                qtyh="0";
+//			        	ppyh=null;
+                                if(tlvbean.get("TOTAL_FEE") != null){
+                                    tlvbean.put("F2", "[0"+tlvbean.get("TOTAL_FEE").toString()+"|0|0|0|0|0]");
+                                }else{
+                                    tlvbean.put("F2", "[0|0|0|0|0|0]");
+                                }
+                            }
+                            receiptWriter.write("交易类型: "+type+"\r\n");
+                            receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                            if(tlvbean.get("TRADE_NO") != null){
+                                receiptWriter.write("交 易 号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                            }
+                            if(tlvbean.get("PAYMENTPLATFORM").equals("Z")){
+                                if(total_fee != null){
+                                    receiptWriter.write("订单金额: "+total_fee+"元\r\n");
+                                }
+                                receiptWriter.write("优惠金额: "+skje+"元\r\n");
+                            }else{
+                                if(total_fee != null){
+                                    receiptWriter.write("订单金额: "+total_fee+"元\r\n");
+                                }
+                                receiptWriter.write("实扣金额: "+skje+"元\r\n");
+                                receiptWriter.write("商户优惠金额: "+shyh+"元\r\n");
+                                receiptWriter.write("其它优惠金额: "+qtyh+"元\r\n");
+//				        	if(ppyh != null){
+//				        	   receiptWriter.write("品牌优惠金额: "+ppyh+"元\r\n");
+//				        	}
+                            }
+                            if("3".equals(tlvbean.get("PAYMENTPLATFORM"))){
+                                //String login_id=tlvmap.get("DYNAMIC_ID").toString().substring(0,4)+"***"+tlvmap.get("DYNAMIC_ID").toString().substring(tlvmap.get("DYNAMIC_ID").toString().length()-4,tlvmap.get("DYNAMIC_ID").toString().length());
+                                if(tlvbean.get("SUBJECT") != null){
+                                    String loginid=tlvbean.get("SUBJECT").toString();
+                                    receiptWriter.write("支付宝账号: "+loginid+"\r\n");
+                                }
+                            }
+                            receiptWriter.write("\r\n\r\n");
+                            sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            if(tlvbean.get("PAYMENTPLATFORM").equals("Z")){
+                                receiptWriter1.write(sytemdate+"会花券消费小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                            }else{
+                                receiptWriter1.write(sytemdate+"支付小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                            }
+                        }}else if(("00".equals(tlvbean.get("RETCODE"))||"EB".equals(tlvbean.get("RETCODE")))&&("REFUNDSUCCESS".equals(tlvbean.get("RETMSG")) || "CANCELSUCCESS".equals(tlvbean.get("RETMSG")) || "PAYCANCEL".equals(tlvbean.get("RETMSG")))){
+                        if("C".equals(tlvmap.get("SERVEICETYPE")) || "E".equals(tlvmap.get("SERVEICETYPE")) || "B".equals(tlvmap.get("SERVEICETYPE"))){
+//		        		if(tlvbean.get("PAYMENTPLATFORM") != null){
+//		        			for (String key : printmap.keySet()) {
+//					        	   if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+//					        		   type = printmap.get(key)+"-退款";
+//					        	   }
+//				        	  }
+//		        		}
+                            Iterator iter = printmap.entrySet().iterator();
+                            while (iter.hasNext()) {
+                                Map.Entry entry = (Map.Entry) iter.next();
+                                String key = entry.getKey().toString();
+                                String val = entry.getValue().toString();
+                                if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+                                    type = val+"-退款";
+                                }
+                            }
+                            skje="0";
+                            shyh="0";
+                            qtyh="0";
+//			        	 ppyh=null;
+                            if(tlvbean.get("TOTAL_FEE") != null){
+                                total_fee="-"+Double.parseDouble((String)tlvbean.get("TOTAL_FEE"))/100;
+                            }
+                            receiptWriter.write("交易类型: "+type+"\r\n");
+                            receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                            if(tlvbean.get("OUT_REQUEST_NO") != null && !"Z".equals(tlvbean.get("PAYMENTPLATFORM"))){
+                                receiptWriter.write("退款单号:\r\n"+tlvbean.get("OUT_REQUEST_NO")+"\r\n");
+                            }
+                            if(tlvbean.get("PAYMENTPLATFORM") != null && "Z".equals(tlvbean.get("PAYMENTPLATFORM")) && tlvbean.get("TRADE_NO") != null){
+                                receiptWriter.write("交易号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                            }
+                            if(tlvbean.get("PAYMENTPLATFORM") != null && !"Z".equals(tlvbean.get("PAYMENTPLATFORM"))){
+//				        		receiptWriter.write("金额:\r\n"+total_fee+"\r\n");
+//				        	}else{
+                                if(total_fee != null){
+                                    receiptWriter.write("订单金额: "+total_fee+"元\r\n");
+                                }
+                                receiptWriter.write("实扣金额: "+skje+"元\r\n");
+                                receiptWriter.write("商户优惠金额: "+shyh+"元\r\n");
+                                receiptWriter.write("其它优惠金额: "+qtyh+"元\r\n");
+//					        	if(ppyh != null){
+//					        	   receiptWriter.write("品牌优惠金额: "+ppyh+"元\r\n");
+//					        	}
+                            }
+//				        	if("3".equals(tlvbean.get("PAYMENTPLATFORM"))){
+//				        		String login_id=tlvmap.get("DYNAMIC_ID").toString().substring(0,4)+"***"+tlvmap.get("DYNAMIC_ID").toString().substring(tlvmap.get("DYNAMIC_ID").toString().length()-4,tlvmap.get("DYNAMIC_ID").toString().length());
+//				        	receiptWriter.write("支付宝登陆ID: "+login_id+"\r\n");
+//				        	}
+                            receiptWriter.write("\r\n\r\n");
+                            sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            if(tlvbean.get("PAYMENTPLATFORM") != null && "Z".equals(tlvbean.get("PAYMENTPLATFORM"))){
+                                receiptWriter1.write(sytemdate+"会花券退款小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                            }else{
+                                receiptWriter1.write(sytemdate+"退款小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                            }
+                        }}else if(("00".equals(tlvbean.get("RETCODE")))&&"OK".equals(tlvbean.get("RETMSG"))&&"91".equals(tlvbean.get("TRCODE"))){
+                        receiptWriter.write("交易类型: 会花券-消费\r\n");
+                        receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                        if(tlvbean.get("TRADE_NO") != null){
+                            receiptWriter.write("交易号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                        }
+                        if(tlvbean.get("QR_CODE") != null){
+//			        	String coupou_seq=new BigDecimal(tlvbean.get("QR_CODE").toString()).divide(new BigDecimal(100)).toString();
+                            String coupou_seq=df.format(Double.valueOf(tlvbean.get("QR_CODE").toString()).doubleValue()/100);
+                            receiptWriter.write("金额:\r\n"+coupou_seq+"元\r\n");
+                        }
+                        receiptWriter1.write(sytemdate+"会花券小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                    }else if(("00".equals(tlvbean.get("RETCODE")))&&"OK".equals(tlvbean.get("RETMSG"))&&("90".equals(tlvbean.get("TRCODE")) || "93".equals(tlvbean.get("TRCODE")))){
+                        receiptWriter.write("交易类型: 会花券-退货\r\n");
+                        receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                        if(tlvbean.get("TRADE_NO") != null){
+                            receiptWriter.write("交易号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                        }
+                        if(tlvbean.get("QR_CODE") != null){
+//			        	String coupou_seq=new BigDecimal(tlvbean.get("QR_CODE").toString()).divide(new BigDecimal(100)).toString();
+                            String coupou_seq=df.format(Double.valueOf(tlvbean.get("QR_CODE").toString()).doubleValue()/100);
+                            receiptWriter.write("金额:\r\n"+"-"+coupou_seq+"元\r\n");
+                        }
+                        receiptWriter1.write(sytemdate+"会花券小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                    }
+                    if("YD".equals(tlvmap.get("PAYMENTPLATFORM"))&&"C".equals(tlvmap.get("SERVEICETYPE"))){
+
+                        if("00".equals(tlvbean.get("RETCODE"))&&"SUCCESS".equals(tlvbean.get("RETMSG"))){
+//		        			BigDecimal totalfee=null,refundfee=null;
+                            String totalfee=null,refundfee=null;
+                            if(tlvbean.get("TOTAL_FEE") != null){
+//		        			totalfee=new BigDecimal(tlvbean.get("TOTAL_FEE").toString());
+//		        			totalfee=totalfee.divide(new BigDecimal(100));
+                                totalfee=df.format(Double.valueOf(tlvbean.get("TOTAL_FEE").toString()).doubleValue()/100);
+                            }
+                            if(tlvbean.get("RETURN_TOTAL_FEE") != null){
+//		        			refundfee=new BigDecimal(tlvbean.get("RETURN_TOTAL_FEE").toString());
+//		        			refundfee=refundfee.divide(new BigDecimal(100));
+                                refundfee=df.format(Double.valueOf(tlvbean.get("RETURN_TOTAL_FEE").toString()).doubleValue()/100);
+                            }
+                            receiptWriter.write("交易类型: 登出\r\n");
+                            if(tlvbean.get("COUNT") != null){
+                                receiptWriter.write("支付总笔数: "+tlvbean.get("COUNT")+"笔\r\n");
+                            }
+                            receiptWriter.write("支付总金额: "+totalfee+"元\r\n");
+                            if(tlvbean.get("RETURN_COUNT") != null){
+                                receiptWriter.write("退款总笔数: "+tlvbean.get("RETURN_COUNT")+"笔\r\n");
+                            }
+                            receiptWriter.write("退款总金额: "+refundfee+"元\r\n");
+                            sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            receiptWriter1.write(sytemdate+"登出成功"+"\r\n");
+                        }
+
+                    }
+                    if(map.get("cutpaper") != null){
+                        if(tlvmap.get("cutpaper") != null){
+                            int rows = Integer.parseInt(tlvmap.get("cutpaper").toString());
+                            for(int i=0;i<rows;i++){
+                                receiptWriter.write(" \r\n");
+                            }
+                        }else{
+                            int rows = Integer.parseInt(map.get("cutpaper").toString());
+                            for(int i=0;i<rows;i++){
+                                receiptWriter.write(" \r\n");
+                            }
+                        }
+                    }
+
+                }else{
+
+                    // receiptWriter.write("CUTPAPER\r\n");
+                    if(map.get("receipttitle") != null && !"92".equals(tlvmap.get("TRCODE"))){
+                        receiptWriter.write("      "+map.get("receipttitle").toString()+"\r\n");
+                    }
+                    if("91".equals(tlvmap.get("TRCODE")) || "90".equals(tlvmap.get("TRCODE")) || "93".equals(tlvmap.get("TRCODE"))){
+                        receiptWriter.write("      会花券签购单\r\n");
+                    }
+                    if(!"92".equals(tlvmap.get("TRCODE"))){
+                        receiptWriter.write("商户存根联，请妥善保管！\r\n");
+                        receiptWriter.write("----------------------------\r\n");
+                        receiptWriter.write("商户编号: "+tlvmap.get("SAASID").toString()+"\r\n");
+                        receiptWriter.write("门店编号: "+tlvmap.get("NUMID").toString()+"\r\n");
+                        receiptWriter.write("POS 编号: "+tlvmap.get("USERID").toString()+"\r\n");
+                        receiptWriter.write("操作员号: "+tlvmap.get("OPERATOR_ID").toString()+"\r\n");
+                        receiptWriter.write("日期时间: "+sytemdate+"\r\n");
+                        receiptWriter.write("----------------------------\r\n");
+                    }
+                    String type=null;
+                    String[] F2=null;
+                    String skje="0";
+                    String shyh="0";
+                    String qtyh="0";
+                    String ppyh=null;
+                    String total_fee=null;
+                    if(("00".equals(tlvbean.get("RETCODE"))||"EB".equals(tlvbean.get("RETCODE")))&&"PAYSUCCESS".equals(tlvbean.get("RETMSG"))){
+                        if("1".equals(tlvmap.get("SERVEICETYPE")) || "2".equals(tlvmap.get("SERVEICETYPE")) || "4".equals(tlvmap.get("SERVEICETYPE"))){
+                            if(tlvbean.get("PAYMENTPLATFORM") != null) {
+//	        		for (String key : printmap.keySet()) {
+//			        	   if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+//			        		   type = printmap.get(key)+"-消费";
+//			        	   }
+//		        	  }
+                                Iterator iter = printmap.entrySet().iterator();
+                                while (iter.hasNext()) {
+                                    Map.Entry entry = (Map.Entry) iter.next();
+                                    String key = entry.getKey().toString();
+                                    String val = entry.getValue().toString();
+                                    if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+                                        type = val+"-消费";
+                                    }
+                                }
+                            }
+                            if(tlvbean.get("TOTAL_FEE") != null){
+//	        	    total_fee=new BigDecimal(tlvbean.get("TOTAL_FEE").toString()).divide(new BigDecimal(100)).toString();
+                                total_fee=df.format(Double.valueOf(tlvbean.get("TOTAL_FEE").toString()).doubleValue()/100);
+                            }
+                            if(tlvbean.get("F2")!=null){
+                                F2=tlvbean.get("F2").toString().trim().split("\\|");
+//	        	 if(F2[0]!=null){skje=new BigDecimal(F2[0]).divide(new BigDecimal(100)).toString();} else{skje="0";}
+//	        	 if(F2[1]!=null){shyh=new BigDecimal(F2[1]).divide(new BigDecimal(100)).toString();} else{shyh="0";}
+//	        	 if(F2[2]!=null){qtyh=new BigDecimal(F2[2]).divide(new BigDecimal(100)).toString();} else{qtyh="0";}
+                                if(F2[0]!=null){skje=df.format(Double.valueOf(F2[0]).doubleValue()/100);} else{skje="0";}
+                                if(F2[1]!=null){shyh=df.format(Double.valueOf(F2[1]).doubleValue()/100);} else{shyh="0";}
+                                if(F2[2]!=null){qtyh=df.format(Double.valueOf(F2[2]).doubleValue()/100);} else{qtyh="0";}
+                                if(F2.length > 3){ppyh=df.format(Double.valueOf(F2[3]).doubleValue()/100);}
+                            }else{
+                                skje=total_fee;
+                                shyh="0";
+                                qtyh="0";
+                                ppyh=null;
+                                if(tlvbean.get("TOTAL_FEE") != null){
+                                    tlvbean.put("F2", tlvbean.get("TOTAL_FEE").toString()+"|0|0|");
+                                }else{
+                                    tlvbean.put("F2", "0|0|0|");
+                                }
+                            }
+                            receiptWriter.write("交易类型: "+type+"\r\n");
+                            receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                            if(tlvbean.get("TRADE_NO") != null){
+                                receiptWriter.write("交 易 号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                            }
+                            if(total_fee != null){
+                                receiptWriter.write("订单金额: "+total_fee+"元\r\n");
+                            }
+                            receiptWriter.write("实扣金额: "+skje+"元\r\n");
+                            receiptWriter.write("商户优惠金额: "+shyh+"元\r\n");
+                            receiptWriter.write("其它优惠金额: "+qtyh+"元\r\n");
+                            if(ppyh != null){
+                                receiptWriter.write("品牌优惠金额: "+ppyh+"元\r\n");
+                            }
+                            if("3".equals(tlvbean.get("PAYMENTPLATFORM"))){
+                                //String login_id=tlvmap.get("DYNAMIC_ID").toString().substring(0,4)+"***"+tlvmap.get("DYNAMIC_ID").toString().substring(tlvmap.get("DYNAMIC_ID").toString().length()-4,tlvmap.get("DYNAMIC_ID").toString().length());
+                                if(tlvbean.get("SUBJECTW") != null){
+                                    String loginid=tlvbean.get("SUBJECT").toString();
+                                    receiptWriter.write("支付宝账号: "+loginid+"\r\n");
+                                }
+                            }
+                            receiptWriter.write("\r\n\r\n");
+                            sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            receiptWriter1.write(sytemdate+"支付小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                        }}else if(("00".equals(tlvbean.get("RETCODE"))||"EB".equals(tlvbean.get("RETCODE")))&&("REFUNDSUCCESS".equals(tlvbean.get("RETMSG")) || "CANCELSUCCESS".equals(tlvbean.get("RETMSG")) || "PAYCANCEL".equals(tlvbean.get("RETMSG")))){
+                        if("3".equals(tlvmap.get("SERVEICETYPE")) || "2".equals(tlvmap.get("SERVEICETYPE")) || "5".equals(tlvmap.get("SERVEICETYPE")) || "4".equals(tlvmap.get("SERVEICETYPE"))){
+                            if(tlvbean.get("PAYMENTPLATFORM") != null){
+//		        	    	for (String key : printmap.keySet()) {
+//					        	   if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+//					        		   type = printmap.get(key)+"-退款";
+//					        	   }
+//				        	  }
+                                Iterator iter = printmap.entrySet().iterator();
+                                while (iter.hasNext()) {
+                                    Map.Entry entry = (Map.Entry) iter.next();
+                                    String key = entry.getKey().toString();
+                                    String val = entry.getValue().toString();
+                                    if(tlvbean.get("PAYMENTPLATFORM").equals(key)){
+                                        type = val+"-退款";
+                                    }
+                                }
+                            }
+                            skje="0";
+                            shyh="0";
+                            qtyh="0";
+                            ppyh=null;
+                            if(tlvbean.get("TOTAL_FEE") != null){
+                                total_fee="-"+Double.parseDouble((String)tlvbean.get("TOTAL_FEE"))/100;
+                            }
+                            receiptWriter.write("交易类型: "+type+"\r\n");
+                            receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                            if(tlvbean.get("OUT_REQUEST_NO") != null){
+                                receiptWriter.write("退款单号:\r\n"+tlvbean.get("OUT_REQUEST_NO")+"\r\n");
+                            }
+                            if(total_fee != null){
+                                receiptWriter.write("订单金额: "+total_fee+"元\r\n");
+                            }
+                            receiptWriter.write("实扣金额: "+skje+"元\r\n");
+                            receiptWriter.write("商户优惠金额: "+shyh+"元\r\n");
+                            receiptWriter.write("其它优惠金额: "+qtyh+"元\r\n");
+                            if(ppyh != null){
+                                receiptWriter.write("品牌优惠金额: "+ppyh+"元\r\n");
+                            }
+//			        	if("3".equals(tlvbean.get("PAYMENTPLATFORM"))){
+//			        		String login_id=tlvmap.get("DYNAMIC_ID").toString().substring(0,4)+"***"+tlvmap.get("DYNAMIC_ID").toString().substring(tlvmap.get("DYNAMIC_ID").toString().length()-4,tlvmap.get("DYNAMIC_ID").toString().length());
+//			        	receiptWriter.write("支付宝登陆ID: "+login_id+"\r\n");
+//			        	}
+                            receiptWriter.write("\r\n\r\n");
+                            sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            receiptWriter1.write(sytemdate+"退款小票打印成功 就收参数："+tlvbean.toString()+"\r\n");
+                        }}else if(("00".equals(tlvbean.get("RETCODE")))&&"OK".equals(tlvbean.get("RETMSG"))&&"91".equals(tlvbean.get("TRCODE"))){
+                        receiptWriter.write("交易类型: 会花券-消费\r\n");
+                        receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                        if(tlvbean.get("TRADE_NO") != null){
+                            receiptWriter.write("交易号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                        }
+                        if(tlvbean.get("QR_CODE") != null){
+//		        	String coupou_seq=new BigDecimal(tlvbean.get("QR_CODE").toString()).divide(new BigDecimal(100)).toString();
+                            String coupou_seq=df.format(Double.valueOf(tlvbean.get("QR_CODE").toString()).doubleValue()/100);
+                            receiptWriter.write("金额:\r\n"+coupou_seq+"元\r\n");
+                        }
+                        sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                        receiptWriter1.write(sytemdate+"会花券小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                    }else if(("00".equals(tlvbean.get("RETCODE")))&&"OK".equals(tlvbean.get("RETMSG"))&&("90".equals(tlvbean.get("TRCODE")) || "93".equals(tlvbean.get("TRCODE")))){
+                        receiptWriter.write("交易类型: 会花券-退货\r\n");
+                        receiptWriter.write("订 单 号:\r\n"+tlvmap.get("OUT_TRADE_NO")+"\r\n");
+                        if(tlvbean.get("TRADE_NO") != null){
+                            receiptWriter.write("交易号:\r\n"+tlvbean.get("TRADE_NO")+"\r\n");
+                        }
+                        if(tlvbean.get("QR_CODE") != null){
+//		        	String coupou_seq=new BigDecimal(tlvbean.get("QR_CODE").toString()).divide(new BigDecimal(100)).toString();
+                            String coupou_seq=df.format(Double.valueOf(tlvbean.get("QR_CODE").toString()).doubleValue()/100);
+                            receiptWriter.write("金额:\r\n"+"-"+coupou_seq+"元\r\n");
+                        }
+                        receiptWriter1.write(sytemdate+"会花券小票打印成功 接收参数："+tlvbean.toString()+"\r\n");
+                    }
+                    if("YD".equals(tlvmap.get("PAYMENTPLATFORM"))&&"C".equals(tlvmap.get("SERVEICETYPE"))){
+
+                        if("00".equals(tlvbean.get("RETCODE"))&&"SUCCESS".equals(tlvbean.get("RETMSG"))){
+//	        			BigDecimal totalfee=null,refundfee=null;
+                            String totalfee=null,refundfee=null;
+                            if(tlvbean.get("TOTAL_FEE") != null){
+//	        		    totalfee=new BigDecimal(tlvbean.get("TOTAL_FEE").toString());
+//	        			totalfee=totalfee.divide(new BigDecimal(100));
+                                totalfee = df.format(Double.valueOf(tlvbean.get("TOTAL_FEE").toString()).doubleValue()/100);
+                            }
+                            if(tlvbean.get("RETURN_TOTAL_FEE") != null){
+//	        			refundfee=new BigDecimal(tlvbean.get("RETURN_TOTAL_FEE").toString());
+//	        			refundfee=refundfee.divide(new BigDecimal(100));
+                                refundfee=df.format(Double.valueOf(tlvbean.get("RETURN_TOTAL_FEE").toString()).doubleValue()/100);
+                            }
+                            receiptWriter.write("交易类型: 登出\r\n");
+                            if(tlvbean.get("COUNT") != null){
+                                receiptWriter.write("支付总笔数: "+tlvbean.get("COUNT")+"笔\r\n");
+                            }
+                            receiptWriter.write("支付总金额: "+totalfee+"元\r\n");
+                            if(tlvbean.get("RETURN_COUNT") != null){
+                                receiptWriter.write("退款总笔数: "+tlvbean.get("RETURN_COUNT")+"笔\r\n");
+                            }
+                            receiptWriter.write("退款总金额: "+refundfee+"元\r\n");
+                            sytemdate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            receiptWriter1.write(sytemdate+"登出成功"+"\r\n");
+                        }
+
+                    }
+                    if(map.get("cutpaper") != null){
+                        if(tlvmap.get("CUTPAPER") != null){
+                            int rows = Integer.parseInt(tlvmap.get("CUTPAPER").toString());
+                            for(int i=0;i<rows;i++){
+                                receiptWriter.write(" \r\n");
+                            }
+                        }else{
+                            int rows = Integer.parseInt(map.get("cutpaper").toString());
+                            for(int i=0;i<rows;i++){
+                                receiptWriter.write(" \r\n");
+                            }
+                        }
+                    }
+                }
+
+            }
+            receiptWriter.close();
+            receiptWriter1.close();
+        }
+        return tlvbean;
+    }
+    public static String request(Tlvbean tlv){
+        String msg=null;
+        String checkisnull1=null;
+        if(tlv==null){
+            msg="Tlvbean对象为空!请检查传输的Tlvbean的值.";
+            return msg;
+        }
+        if(tlv.getPAYMENTPLATFORM()==null){
+            msg="PAYMENTPLATFORM参数为空!请检查传输的Tlvbean中PAYMENTPLATFORM的值.";
+            return msg;
+        }
+        if("3".equals(tlv.getPAYMENTPLATFORM())){
+
+            //支付宝主扫
+            if("8801".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"1".equals(tlv.getSERVEICETYPE())){
+                    msg="支付宝主扫SERVEICETYPE值应为1";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getSUBJECT()==null){
+                    checkisnull1="SUBJECT";
+                }else if(tlv.getPRODUCT_CODE()==null){
+                    checkisnull1="PRODUCT_CODE";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getDYNAMIC_ID_TYPE()==null){
+                    checkisnull1="DYNAMIC_ID_TYPE";
+                }else if(tlv.getDYNAMIC_ID()==null){
+                    checkisnull1="DYNAMIC_ID";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                if(checkisnull1!=null){
+                    msg=checkisnull1+"参数为空值!请检查";
+                }
+                //退款
+            }else if("8802".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"2".equals(tlv.getSERVEICETYPE())){
+                    msg="支付宝退款SERVEICETYPE值应为2";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getOUT_REQUEST_NO()==null){
+                    checkisnull1="OUT_REQUEST_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+
+                //撤销
+            }else if("8803".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"3".equals(tlv.getSERVEICETYPE())){
+                    msg="支付宝撤销SERVEICETYPE值应为3";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                //查询
+            }else if("8804".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"4".equals(tlv.getSERVEICETYPE())){
+                    msg="支付宝查询SERVEICETYPE值应为4";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                if(checkisnull1!=null){
+                    msg=checkisnull1+"参数为空值!请检查";
+                }
+            }else{
+                msg="PAYMENTPLATFORM为3是支付宝类型,TRCODE范围(8801,8802,8803,8804)";
+                return msg;
+            }
+            //微信
+        }else if("1".equals(tlv.getPAYMENTPLATFORM())){
+            //下单并支付
+            if("8901".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"1".equals(tlv.getSERVEICETYPE())){
+                    msg="微信主扫SERVEICETYPE值应为1";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getSUBJECT()==null){
+                    checkisnull1="SUBJECT";
+                }else if(tlv.getPRODUCT_CODE()==null){
+                    checkisnull1="PRODUCT_CODE";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getF1()==null){
+                    checkisnull1="F1";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                //退款
+            }else if("8902".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"3".equals(tlv.getSERVEICETYPE())){
+                    msg="微信退款SERVEICETYPE值应为3";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getDYNAMIC_ID_TYPE()==null){
+                    checkisnull1="DYNAMIC_ID_TYPE";
+                }else if(tlv.getDYNAMIC_ID()==null){
+                    checkisnull1="DYNAMIC_ID";
+                }else if(tlv.getOUT_REQUEST_NO()==null){
+                    checkisnull1="OUT_REQUEST_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                //撤销
+            }else if("8903".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"5".equals(tlv.getSERVEICETYPE())){
+                    msg="微信撤销SERVEICETYPE值应为5";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                //订单查询
+            }else if("8904".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"2".equals(tlv.getSERVEICETYPE())){
+                    msg="微信订单查询SERVEICETYPE值应为2";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                //退款查询
+            }else if("8905".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(!"4".equals(tlv.getSERVEICETYPE())){
+                    msg="微信退款查询SERVEICETYPE值应为4";
+                    return msg;
+                }else if(tlv.getSERVEICETYPE()==null){
+                    checkisnull1="SERVEICETYPE";
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+            }else{
+                msg="PAYMENTPLATFORM为1是微信类型,TRCODE范围(8901,8902,8903,8904,8905)";
+                return msg;
+            }
+
+        }else if("5".equals(tlv.getPAYMENTPLATFORM())){
+
+            //翼付宝主扫
+            if("9001".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"1".equals(tlv.getSERVEICETYPE())){
+                    msg="翼支付主扫SERVEICETYPE值应为1";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getDYNAMIC_ID()==null){
+                    checkisnull1="DYNAMIC_ID";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                if(checkisnull1!=null){
+                    msg=checkisnull1+"参数为空值!请检查";
+                }
+                //退款
+            }else if("9002".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"3".equals(tlv.getSERVEICETYPE())){
+                    msg="翼支付退款SERVEICETYPE值应为3";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getOUT_REQUEST_NO()==null){
+                    checkisnull1="OUT_REQUEST_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+
+                //撤销
+            }else if("9003".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"4".equals(tlv.getSERVEICETYPE())){
+                    msg="翼支付撤销SERVEICETYPE值应为4";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getOUT_REQUEST_NO()==null){
+                    checkisnull1="OUT_REQUEST_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+
+                //查询
+            }else if("9004".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"2".equals(tlv.getSERVEICETYPE())){
+                    msg="翼付宝查询SERVEICETYPE值应为2";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+
+            }else{
+                msg="PAYMENTPLATFORM为3是支付宝类型,TRCODE范围(8801,8802,8803,8804)";
+                return msg;
+            }
+        }else if("G".equals(tlv.getPAYMENTPLATFORM())){
+
+            //拉卡拉
+            if("7001".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"1".equals(tlv.getSERVEICETYPE())){
+                    msg="拉卡拉SERVEICETYPE值应为1";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getSUBJECT()==null){
+                    checkisnull1="SUBJECT";
+                }else if(tlv.getPRODUCT_CODE()==null){
+                    checkisnull1="PRODUCT_CODE";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getDYNAMIC_ID_TYPE()==null){
+                    checkisnull1="DYNAMIC_ID_TYPE";
+                }else if(tlv.getDYNAMIC_ID()==null){
+                    checkisnull1="DYNAMIC_ID";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                if(checkisnull1!=null){
+                    msg=checkisnull1+"参数为空值!请检查";
+                }
+                //退款
+            }else if("7002".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"3".equals(tlv.getSERVEICETYPE())){
+                    msg="拉卡拉退款SERVEICETYPE值应为3";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getOUT_REQUEST_NO()==null){
+                    checkisnull1="OUT_REQUEST_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+
+                //撤销
+            }else if("7003".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getTOTAL_FEE()==null){
+                    checkisnull1="TOTAL_FEE";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"5".equals(tlv.getSERVEICETYPE())){
+                    msg="拉卡拉撤销SERVEICETYPE值应为5";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                //查询
+            }else if("7004".equals(tlv.getTRCODE())){
+                if(tlv.getVERSION()==null){
+                    checkisnull1="VERSION";
+                }else if(tlv.getTRCODE()==null){
+                    checkisnull1="TRCODE";
+                }else if(tlv.getSAASID()==null){
+                    checkisnull1="SAASID";
+                }else if(tlv.getNUMID()==null){
+                    checkisnull1="NUMID";
+                }else if(tlv.getUSERID()==null){
+                    checkisnull1="USERID";
+                }else if(tlv.getPAYMENTPLATFORM()==null){
+                    checkisnull1="PAYMENTPLATFORM";
+                }else if(!"2".equals(tlv.getSERVEICETYPE())){
+                    msg="拉卡拉查询SERVEICETYPE值应为2";
+                    return msg;
+                }else if(tlv.getOUT_TRADE_NO()==null){
+                    checkisnull1="OUT_TRADE_NO";
+                }else if(tlv.getF2()==null){
+                    checkisnull1="F2";
+                }
+                if(checkisnull1!=null){
+                    msg=checkisnull1+"参数为空值!请检查";
+                }
+            }else{
+                msg="PAYMENTPLATFORM为G是拉卡拉类型,TRCODE范围(7001,7002,7003,7004)";
+                return msg;
+            }
+        }else{
+            msg="PAYMENTPLATFORM参数有误,1为微信,3为支付宝,5为翼支付,G为拉卡拉";
+            return msg;
+        }
+        if(checkisnull1!=null){
+            msg=checkisnull1+"参数为空值!请检查";
+        }
+        return msg;
+    }
+
+
+    public static byte[] hexStr2ByteArr(String strIn) throws Exception {
+        byte[] arrB = strIn.getBytes();
+        int iLen = arrB.length;
+
+        // 两个字符表示一个字节，所以字节数组长度是字符串长度除以2
+        byte[] arrOut = new byte[iLen / 2];
+        for (int i = 0; i < iLen; i = i + 2) {
+            String strTmp = new String(arrB, i, 2);
+            arrOut[i / 2] = (byte) Integer.parseInt(strTmp, 16);
+        }
+        return arrOut;
+    }
+
+}
